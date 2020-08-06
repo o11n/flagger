@@ -8,7 +8,7 @@ set -o errexit
 REPO_ROOT=$(git rev-parse --show-toplevel)
 
 echo '>>> Creating test namespace'
-kubectl create namespace test
+kubectl create namespace test || true
 
 echo '>>> Installing load tester'
 kubectl apply -k ${REPO_ROOT}/kustomize/tester

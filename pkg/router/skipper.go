@@ -90,6 +90,9 @@ func (skp *SkipperRouter) Reconcile(canary *flaggerv1.Canary) error {
 	canaryIngress, err := skp.kubeClient.NetworkingV1beta1().Ingresses(canary.Namespace).Get(
 		context.TODO(), canaryIngressName, metav1.GetOptions{})
 
+	// Let K8s set this. Otherwise K8s API complains with "resourceVersion should not be set on objects to be created"
+	iClone.ObjectMeta.ResourceVersion = ""
+
 	// new ingress
 	if errors.IsNotFound(err) {
 		_, err := skp.kubeClient.NetworkingV1beta1().Ingresses(canary.Namespace).Create(context.TODO(), iClone, metav1.CreateOptions{})
