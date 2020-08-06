@@ -1,10 +1,13 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-
 resources:
+  - ../base/prometheus/
+  - ../base/flagger/
   - https://raw.githubusercontent.com/zalando/skipper/master/docs/kubernetes/deploy/deployment/rbac.yaml
   - https://raw.githubusercontent.com/zalando/skipper/master/docs/kubernetes/deploy/deployment/deployment.yaml
-
+  - namespace.yaml
+patchesStrategicMerge:
+  - patch.yaml
 patches:
   - target:
       kind: Deployment
@@ -44,7 +47,10 @@ patches:
                   - "-kubernetes-path-mode=path-prefix"
                   - "-address=:9999"
                   - "-proxy-preserve-host"
+                  - "-route-response-metrics"
+                  - "-route-backend-metrics"
                   - "-serve-host-metrics"
+                  - "-serve-route-metrics"
                   - "-disable-metrics-compat"
                   - "-enable-profile"
                   - "-enable-ratelimits"
