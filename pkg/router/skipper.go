@@ -45,7 +45,7 @@ func (skp *SkipperRouter) Reconcile(canary *flaggerv1.Canary) error {
 		return fmt.Errorf("ingress selector is empty")
 	}
 
-	apexSvcName, primarySvcName, canarySvcName := canary.GetServiceNames()
+	apexSvcName, _, canarySvcName := canary.GetServiceNames()
 	apexIngressName, canaryIngressName := skp.getIngressNames(canary.Spec.IngressRef.Name)
 
 	// retrieving apex ingress
@@ -63,7 +63,7 @@ func (skp *SkipperRouter) Reconcile(canary *flaggerv1.Canary) error {
 			path := &rule.HTTP.Paths[y] // ref not value
 			if path.Backend.ServiceName == apexSvcName {
 				// flipping to primary service
-				path.Backend.ServiceName = primarySvcName
+				path.Backend.ServiceName = apexSvcName
 				// adding second canary service
 				canaryBackend := path.DeepCopy()
 				canaryBackend.Backend.ServiceName = canarySvcName
@@ -75,7 +75,7 @@ func (skp *SkipperRouter) Reconcile(canary *flaggerv1.Canary) error {
 		return fmt.Errorf("backend %s not found in ingress %s", apexSvcName, apexIngressName)
 	}
 
-	iClone.Annotations = skp.makeAnnotations(iClone.Annotations, map[string]int{primarySvcName: 100, canarySvcName: 0})
+	iClone.Annotations = skp.makeAnnotations(iClone.Annotations, map[string]int{apexSvcName: 100, canarySvcName: 0})
 	iClone.Name = canaryIngressName
 	iClone.Namespace = canary.Namespace
 	iClone.OwnerReferences = []metav1.OwnerReference{
@@ -90,11 +90,10 @@ func (skp *SkipperRouter) Reconcile(canary *flaggerv1.Canary) error {
 	canaryIngress, err := skp.kubeClient.NetworkingV1beta1().Ingresses(canary.Namespace).Get(
 		context.TODO(), canaryIngressName, metav1.GetOptions{})
 
-	// Let K8s set this. Otherwise K8s API complains with "resourceVersion should not be set on objects to be created"
-	iClone.ObjectMeta.ResourceVersion = ""
-
 	// new ingress
 	if errors.IsNotFound(err) {
+		// Let K8s set this. Otherwise K8s API complains with "resourceVersion should not be set on objects to be created"
+		iClone.ObjectMeta.ResourceVersion = ""
 		_, err := skp.kubeClient.NetworkingV1beta1().Ingresses(canary.Namespace).Create(context.TODO(), iClone, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("ingress %s.%s create error: %w", iClone.Name, iClone.Namespace, err)
@@ -126,7 +125,7 @@ func (skp *SkipperRouter) Reconcile(canary *flaggerv1.Canary) error {
 }
 
 func (skp *SkipperRouter) GetRoutes(canary *flaggerv1.Canary) (primaryWeight, canaryWeight int, mirrored bool, err error) {
-	_, primarySvcName, canarySvcName := canary.GetServiceNames()
+	apexSvcName, _, canarySvcName := canary.GetServiceNames()
 
 	_, canaryIngressName := skp.getIngressNames(canary.Spec.IngressRef.Name)
 	canaryIngress, err := skp.kubeClient.NetworkingV1beta1().Ingresses(canary.Namespace).Get(context.TODO(), canaryIngressName, metav1.GetOptions{})
@@ -140,14 +139,14 @@ func (skp *SkipperRouter) GetRoutes(canary *flaggerv1.Canary) (primaryWeight, ca
 		err = fmt.Errorf("ingress %s.%s get backendWeights error: %w", canaryIngressName, canary.Namespace, err)
 		return
 	}
-	primaryWeight = weights[primarySvcName]
+	primaryWeight = weights[apexSvcName]
 	canaryWeight = weights[canarySvcName]
 	mirrored = false
 	return
 }
 
 func (skp *SkipperRouter) SetRoutes(canary *flaggerv1.Canary, primaryWeight, canaryWeight int, _ bool) (err error) {
-	_, primarySvcName, canarySvcName := canary.GetServiceNames()
+	apexSvcName, _, canarySvcName := canary.GetServiceNames()
 	_, canaryIngressName := skp.getIngressNames(canary.Spec.IngressRef.Name)
 	canaryIngress, err := skp.kubeClient.NetworkingV1beta1().Ingresses(canary.Namespace).Get(context.TODO(), canaryIngressName, metav1.GetOptions{})
 	if err != nil {
@@ -160,8 +159,8 @@ func (skp *SkipperRouter) SetRoutes(canary *flaggerv1.Canary, primaryWeight, can
 
 	// Canary
 	iClone.Annotations = skp.makeAnnotations(iClone.Annotations, map[string]int{
-		primarySvcName: primaryWeight,
-		canarySvcName:  canaryWeight,
+		apexSvcName:   primaryWeight,
+		canarySvcName: canaryWeight,
 	})
 
 	_, err = skp.kubeClient.NetworkingV1beta1().Ingresses(canary.Namespace).Update(context.TODO(), iClone, metav1.UpdateOptions{})

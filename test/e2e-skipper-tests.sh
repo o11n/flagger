@@ -18,6 +18,22 @@ echo '>>> Initialising canary'
 kubectl apply -f ${REPO_ROOT}/test/e2e-workload.yaml
 kubectl apply -f ${REPO_ROOT}/test/e2e-skipper-test-ingress.yaml
 
+kubectl apply -n test -f - <<EOS
+apiVersion: v1
+kind: Service
+metadata:
+  name: podinfo
+spec:
+  ports:
+  - name: http
+    port: 9898
+    protocol: TCP
+    targetPort: http
+  selector:
+    app: podinfo
+  type: ClusterIP
+EOS
+
 echo '>>> Create canary CRD'
 cat <<EOF | kubectl apply -f -
 apiVersion: flagger.app/v1beta1
@@ -62,7 +78,7 @@ spec:
         url: http://flagger-loadtester.test/
         metadata:
           type: cmd
-          cmd: "hey -z 2m -q 10 -c 2 -host app.example.com http://skipper.kube-system"
+          cmd: "hey -z 2m -q 10 -c 2 -host app.example.com http://skipper-ingress.kube-system"
 EOF
 
 echo '>>> Waiting for primary to be ready'
