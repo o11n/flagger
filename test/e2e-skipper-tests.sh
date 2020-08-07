@@ -62,7 +62,7 @@ spec:
         url: http://flagger-loadtester.test/
         metadata:
           type: cmd
-          cmd: "hey -z 2m -q 10 -c 2 -host app.example.com http://skipper.kube-system"
+          cmd: "hey -z 2m -q 10 -c 2 -host app.example.com http://skipper-ingress.kube-system"
 EOF
 
 echo '>>> Waiting for primary to be ready'
