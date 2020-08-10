@@ -7,7 +7,6 @@ build:
 		-ldflags "-s -w -X github.com/weaveworks/flagger/pkg/version.REVISION=$${GIT_COMMIT}" \
 		-a -installsuffix cgo -o ./bin/flagger ./cmd/flagger/*
 	docker build -t weaveworks/flagger:$(TAG) . -f Dockerfile
-	docker tag weaveworks/flagger:$(TAG) test/flagger:latest
 
 push:
 	docker tag weaveworks/flagger:$(TAG) weaveworks/flagger:$(VERSION)
