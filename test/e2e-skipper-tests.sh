@@ -40,7 +40,6 @@ spec:
     name: podinfo
     port: 80
     portName: http
-    portDiscovery: true
   analysis:
     interval: 15s
     threshold: 5
