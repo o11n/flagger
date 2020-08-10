@@ -9,14 +9,14 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 
 echo '>>> Creating test namespace'
 kubectl create namespace test || true
+echo '>>> service canary'
+kubectl apply -f ${REPO_ROOT}/test/e2e-skipper-test-ingress.yaml
+echo '>>> Initialising canary'
+kubectl apply -f ${REPO_ROOT}/test/e2e-workload.yaml
 
 echo '>>> Installing load tester'
 kubectl apply -k ${REPO_ROOT}/kustomize/tester
 kubectl -n test rollout status deployment/flagger-loadtester
-
-echo '>>> Initialising canary'
-kubectl apply -f ${REPO_ROOT}/test/e2e-workload.yaml
-kubectl apply -f ${REPO_ROOT}/test/e2e-skipper-test-ingress.yaml
 
 echo '>>> Create canary CRD'
 cat <<EOF | kubectl apply -f -
@@ -37,9 +37,17 @@ spec:
     name: podinfo
   progressDeadlineSeconds: 60
   service:
+    # service name (defaults to targetRef.name)
     name: podinfo
+    # ClusterIP port number
     port: 80
+    # container port name or number (optional)
+    targetPort: 9898
+    # port name can be http or grpc (default http)
     portName: http
+    # add all the other container ports
+    # to the ClusterIP services (default false)
+    portDiscovery: false
   analysis:
     interval: 15s
     threshold: 5
@@ -59,11 +67,23 @@ spec:
       thresholdRange:
         max: 500
     webhooks:
+      # - name: gate
+      #   type: confirm-rollout
+      #   url: http://flagger-loadtester.test/gate/approve
+      - name: acceptance-test
+        type: pre-rollout
+        url: http://flagger-loadtester.test/
+        timeout: 10s
+        metadata:
+          type: bash
+          cmd: "curl -sd 'test' http://podinfo-canary/token | grep token"
       - name: load-test
         url: http://flagger-loadtester.test/
+        timeout: 5s
         metadata:
           type: cmd
-          cmd: "hey -z 2m -q 10 -c 2 -host app.example.com http://skipper-ingress.kube-system"
+          cmd: "hey -z 10m -q 10 -c 2 -host app.example.com http://skipper-ingress.kube-system"
+          logCmdOutput: "true"
 EOF
 
 echo '>>> Waiting for primary to be ready'

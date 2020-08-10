@@ -142,6 +142,8 @@ func (skp *SkipperRouter) GetRoutes(canary *flaggerv1.Canary) (primaryWeight, ca
 	primaryWeight = weights[apexSvcName]
 	canaryWeight = weights[canarySvcName]
 	mirrored = false
+	skp.logger.With("GetRoutes", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+		Debugf("GetRoutes primaryWeight: %d, canaryWeight: %d", primaryWeight, canaryWeight)
 	return
 }
 
@@ -167,6 +169,8 @@ func (skp *SkipperRouter) SetRoutes(canary *flaggerv1.Canary, primaryWeight, can
 	if err != nil {
 		return fmt.Errorf("ingress %s.%s update error %w", iClone.Name, iClone.Namespace, err)
 	}
+	skp.logger.With("SetRoutes", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+		Debugf("primaryWeight: %d, canaryWeight: %d", primaryWeight, canaryWeight)
 
 	return nil
 }
