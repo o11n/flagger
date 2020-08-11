@@ -6,49 +6,20 @@ import (
 	"time"
 
 	flaggerv1 "github.com/weaveworks/flagger/pkg/apis/flagger/v1beta1"
+	"github.com/weaveworks/flagger/pkg/logger"
+
 	"github.com/weaveworks/flagger/pkg/metrics/providers"
 )
 
+const routePattern = `{{- $route := printf "kube(ew)?_%s__%s__.*__%s(_[0-9]+)?" namespace ingress service }}`
+
 var skipperQueries = map[string]string{
-	"request-success-rate": `
-	{{- $route := printf "kube(ew)?_%s__%s.*__%s(_[0-9]+)?" namespace ingress service }}
-	sum(
-		rate(
-			skipper_response_duration_seconds_bucket{
-				route=~"{{ $route }}",
-				code!~"5..",
-				le="+Inf"
-			}[{{ interval }}]
-		)
-	)
-	/ 
-	sum(
-		rate(
-			skipper_response_duration_seconds_bucket{
-				route=~"{{ $route }}",
-				le="+Inf"
-			}[{{ interval }}]
-		)
-	)
-	* 100`,
-	"request-duration": `
-	{{- $route := printf "kube(ew)?_%s__%s.*__%s(_[0-9]+)?" namespace ingress service }}
-	sum(
-		rate(
-			skipper_response_duration_seconds_sum{
-				route=~"{{ $route }}"
-			}[{{ interval }}]
-		)
-	) 
-	/ 
-	sum(
-		rate(
-			skipper_response_duration_seconds_count{
-				route=~"{{ $route }}"
-			}[{{ interval }}]
-		)
-	) 
-	* 1000`,
+	"request-success-rate": routePattern + `
+	sum(rate(skipper_response_duration_seconds_bucket{route=~"{{ $route }}",code!~"5..",le="+Inf"}[{{ interval }}])) / 
+	sum(rate(skipper_response_duration_seconds_bucket{route=~"{{ $route }}",le="+Inf"}[{{ interval }}])) * 100`,
+	"request-duration": routePattern + `
+	sum(rate(skipper_response_duration_seconds_sum{route=~"{{ $route }}"}[{{ interval }}])) / 
+	sum(rate(skipper_response_duration_seconds_count{route=~"{{ $route }}"}[{{ interval }}])) * 1000`,
 }
 
 // SkipperObserver Implementation for Skipper (https://github.com/zalando/skipper)
@@ -65,6 +36,8 @@ func (ob *SkipperObserver) GetRequestSuccessRate(model flaggerv1.MetricTemplateM
 	if err != nil {
 		return 0, fmt.Errorf("rendering query failed: %w", err)
 	}
+	logger, _ := logger.NewLoggerWithEncoding("debug", "json")
+	logger.Debugf("GetRequestSuccessRate: %s", query)
 
 	value, err := ob.client.RunQuery(query)
 	if err != nil {
@@ -83,6 +56,8 @@ func (ob *SkipperObserver) GetRequestDuration(model flaggerv1.MetricTemplateMode
 	if err != nil {
 		return 0, fmt.Errorf("rendering query failed: %w", err)
 	}
+	logger, _ := logger.NewLoggerWithEncoding("debug", "json")
+	logger.Debugf("GetRequestDuration: %s", query)
 
 	value, err := ob.client.RunQuery(query)
 	if err != nil {
@@ -102,5 +77,9 @@ func encodeModelForSkipper(model flaggerv1.MetricTemplateModel) flaggerv1.Metric
 	model.Namespace = nonWord.ReplaceAllString(model.Namespace, "_")
 	model.Service = nonWord.ReplaceAllString(model.Service, "_")
 	model.Target = nonWord.ReplaceAllString(model.Target, "_")
+
+	logger, _ := logger.NewLoggerWithEncoding("debug", "json")
+	logger.Debug("encodeModelForSkipper: ", model)
+
 	return model
 }

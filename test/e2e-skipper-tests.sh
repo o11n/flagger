@@ -34,11 +34,11 @@ spec:
   ingressRef:
     apiVersion: networking.k8s.io/v1beta1
     kind: Ingress
-    name: podinfo
+    name: podinfo-ingress
   progressDeadlineSeconds: 60
   service:
     # service name (defaults to targetRef.name)
-    name: podinfo
+    name: podinfo-service
     # ClusterIP port number
     port: 80
     # container port name or number (optional)
@@ -49,19 +49,19 @@ spec:
     # to the ClusterIP services (default false)
     portDiscovery: false
   analysis:
-    interval: 15s
+    interval: 5s
     threshold: 5
-    maxWeight: 40
-    stepWeight: 20
+    maxWeight: 100
+    stepWeight: 5
     metrics:
     - name: request-success-rate
-      interval: 1m
+      interval: 30s
       # minimum req success rate (non 5xx responses)
       # percentage (0-100)
       thresholdRange:
         min: 99
     - name: request-duration
-      interval: 1m
+      interval: 30s
       # maximum req duration P99
       # milliseconds
       thresholdRange:
@@ -76,14 +76,14 @@ spec:
         timeout: 10s
         metadata:
           type: bash
-          cmd: "curl -sd 'test' http://podinfo-canary/token | grep token"
+          cmd: "curl -sd 'test' http://podinfo-service-canary/token | grep token"
       - name: "load test"
         type: rollout
         url: http://flagger-loadtester.test/
         timeout: 5s
         metadata:
           type: cmd
-          cmd: "hey -z 10m -q 10 -c 2 -host app.example.com http://skipper-ingress.kube-system"
+          cmd: "hey -z 2m -q 10 -c 2 -host app.example.com http://skipper-ingress.kube-system"
           logCmdOutput: "true"
 EOF
 
