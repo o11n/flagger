@@ -49,19 +49,19 @@ spec:
     # to the ClusterIP services (default false)
     portDiscovery: false
   analysis:
-    interval: 5s
+    interval: 15s
     threshold: 5
     maxWeight: 100
-    stepWeight: 5
+    stepWeight: 10
     metrics:
     - name: request-success-rate
-      interval: 30s
+      interval: 15s
       # minimum req success rate (non 5xx responses)
       # percentage (0-100)
       thresholdRange:
         min: 99
     - name: request-duration
-      interval: 30s
+      interval: 15s
       # maximum req duration P99
       # milliseconds
       thresholdRange:
