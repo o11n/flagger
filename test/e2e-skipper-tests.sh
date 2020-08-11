@@ -67,9 +67,9 @@ spec:
       thresholdRange:
         max: 500
     webhooks:
-      # - name: gate
-      #   type: confirm-rollout
-      #   url: http://flagger-loadtester.test/gate/approve
+      - name: gate
+        type: confirm-rollout
+        url: http://flagger-loadtester.test/gate/approve
       - name: acceptance-test
         type: pre-rollout
         url: http://flagger-loadtester.test/
@@ -77,7 +77,8 @@ spec:
         metadata:
           type: bash
           cmd: "curl -sd 'test' http://podinfo-canary/token | grep token"
-      - name: load-test
+      - name: "load test"
+        type: rollout
         url: http://flagger-loadtester.test/
         timeout: 5s
         metadata:
