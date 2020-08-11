@@ -106,9 +106,7 @@ func (skp *SkipperRouter) Reconcile(canary *flaggerv1.Canary) error {
 	}
 
 	// existant, updating
-	diffSpec := cmp.Diff(iClone.Spec, canaryIngress.Spec)
-	diffAnnotations := cmp.Diff(iClone.Annotations, canaryIngress.Annotations)
-	if diffSpec != "" || diffAnnotations != "" {
+	if cmp.Diff(iClone.Spec, canaryIngress.Spec) != "" {
 		ingressClone := canaryIngress.DeepCopy()
 		ingressClone.Spec = iClone.Spec
 		ingressClone.Annotations = iClone.Annotations
