@@ -15,7 +15,6 @@ var skipperQueries = map[string]string{
 	sum(
 		rate(
 			skipper_response_duration_seconds_bucket{
-				namespace="{{ namespace }}",
 				route=~"{{ $route }}",
 				code!~"5..",
 				le="+Inf"
@@ -26,7 +25,6 @@ var skipperQueries = map[string]string{
 	sum(
 		rate(
 			skipper_response_duration_seconds_bucket{
-				namespace="{{ namespace }}",
 				route=~"{{ $route }}",
 				le="+Inf"
 			}[{{ interval }}]
@@ -38,7 +36,6 @@ var skipperQueries = map[string]string{
 	sum(
 		rate(
 			skipper_response_duration_seconds_sum{
-				namespace="{{ namespace }}",
 				route=~"{{ $route }}"
 			}[{{ interval }}]
 		)
@@ -47,7 +44,6 @@ var skipperQueries = map[string]string{
 	sum(
 		rate(
 			skipper_response_duration_seconds_count{
-				namespace="{{ namespace }}",
 				route=~"{{ $route }}"
 			}[{{ interval }}]
 		)

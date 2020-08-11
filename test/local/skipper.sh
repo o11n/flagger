@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 
-kind delete cluster || true
-
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd $REPO_ROOT
 
 make build
 docker tag weaveworks/flagger:latest test/flagger:latest
 make loadtester-build
-kind create cluster --wait 5m --image kindest/node:v1.16.9
+(kind get clusters && kubectl delete ns/test --force) || kind create cluster --wait 5m --image kindest/node:v1.16.9
 ./test/e2e-skipper.sh
 ./test/e2e-skipper-tests.sh
 
