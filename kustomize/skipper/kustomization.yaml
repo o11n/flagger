@@ -42,14 +42,14 @@ patches:
                   initialDelaySeconds: 5
                 args:
                   - skipper
-                  - -default-filters-prepend=enableAccessLog()
+                  - -default-filters-prepend=enableAccessLog(4,5)
                   - -address=:9999
                   - -disable-metrics-compat
                   - -enable-connection-metrics
                   - -enable-profile
                   - -enable-ratelimits
                   - -experimental-upgrade
-                  - -histogram-metric-buckets=.0001,.00025,.0005,.00075,.001,.0025,.005,.0075,.01,.025,.05,.075,.1,.2,.3,.4,.5,.75,1,2,3,4,5,7,10,15,20,30,60,120,300,600
+                  - -histogram-metric-buckets=.01,1,10,100
                   - -kubernetes-in-cluster
                   - -kubernetes-path-mode=path-prefix
                   - -kubernetes
