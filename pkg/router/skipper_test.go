@@ -48,9 +48,9 @@ func TestSkipperRouter_Reconcile(t *testing.T) {
 				context.TODO(), canaryName, metav1.GetOptions{})
 			assert.NoError(err)
 			// test initialisation
-			assert.JSONEq(inCanary.Annotations["zalando.org/backend-weights"], `{"podinfo-primary":100,"podinfo-canary":0}`)
-			assert.Equal(inCanary.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName, "podinfo-primary", "backend flipped over")
-			assert.Equal(inCanary.Spec.Rules[0].HTTP.Paths[1].Backend.ServiceName, "podinfo-canary", "backend flipped over")
+			assert.JSONEq(`{"podinfo-primary":100,"podinfo-canary":0}`, inCanary.Annotations["zalando.org/backend-weights"])
+			assert.Equal("podinfo-primary", inCanary.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName, "backend flipped over")
+			assert.Equal("podinfo-canary", inCanary.Spec.Rules[0].HTTP.Paths[1].Backend.ServiceName, "backend flipped over")
 			assert.Equal(inCanary.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort,
 				inCanary.Spec.Rules[0].HTTP.Paths[1].Backend.ServicePort, "canary backend not cloned")
 		})
@@ -88,8 +88,8 @@ func TestSkipperRouter_GetSetRoutes(t *testing.T) {
 			inCanary, err := router.kubeClient.NetworkingV1beta1().Ingresses("default").Get(
 				context.TODO(), fmt.Sprintf("%s-canary", mocks.ingressCanary.Spec.IngressRef.Name), metav1.GetOptions{})
 			assert.NoError(err)
-			assert.JSONEq(inCanary.Annotations["zalando.org/backend-weights"],
-				fmt.Sprintf(`{"podinfo-primary": %d,"podinfo-canary": %d}`, tt.primary, tt.canary))
+			assert.JSONEq(fmt.Sprintf(`{"podinfo-primary": %d,"podinfo-canary": %d}`, tt.primary, tt.canary),
+				inCanary.Annotations["zalando.org/backend-weights"])
 			p, c, m, err = router.GetRoutes(mocks.ingressCanary)
 			assert.NoError(err)
 			assert.Equal(tt.primary, p)

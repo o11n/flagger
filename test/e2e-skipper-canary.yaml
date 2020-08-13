@@ -61,5 +61,5 @@ spec:
         timeout: 5s
         metadata:
           type: cmd
-          cmd: "hey -z 15s -q 10 -c 2 -host app.example.com http://skipper-ingress.kube-system"
+          cmd: "hey -z 2m -q 10 -c 2 -host app.example.com http://skipper-ingress.kube-system"
           logCmdOutput: "true"

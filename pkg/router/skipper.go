@@ -39,13 +39,18 @@ type SkipperRouter struct {
 	logger     *zap.SugaredLogger
 }
 
+type backendWeight struct {
+	name   string
+	weight int
+}
+
 // Reconcile creates or updates the ingresses
 func (skp *SkipperRouter) Reconcile(canary *flaggerv1.Canary) error {
 	if canary.Spec.IngressRef == nil || canary.Spec.IngressRef.Name == "" {
 		return fmt.Errorf("ingress selector is empty")
 	}
 
-	apexSvcName, _, canarySvcName := canary.GetServiceNames()
+	apexSvcName, primarySvcName, canarySvcName := canary.GetServiceNames()
 	apexIngressName, canaryIngressName := skp.getIngressNames(canary.Spec.IngressRef.Name)
 
 	// retrieving apex ingress
@@ -63,7 +68,7 @@ func (skp *SkipperRouter) Reconcile(canary *flaggerv1.Canary) error {
 			path := &rule.HTTP.Paths[y] // ref not value
 			if path.Backend.ServiceName == apexSvcName {
 				// flipping to primary service
-				path.Backend.ServiceName = apexSvcName
+				path.Backend.ServiceName = primarySvcName
 				// adding second canary service
 				canaryBackend := path.DeepCopy()
 				canaryBackend.Backend.ServiceName = canarySvcName
@@ -75,7 +80,7 @@ func (skp *SkipperRouter) Reconcile(canary *flaggerv1.Canary) error {
 		return fmt.Errorf("backend %s not found in ingress %s", apexSvcName, apexIngressName)
 	}
 
-	iClone.Annotations = skp.makeAnnotations(iClone.Annotations, map[string]int{apexSvcName: 100, canarySvcName: 0})
+	iClone.Annotations = skp.makeAnnotations(iClone.Annotations, map[string]int{primarySvcName: 100, canarySvcName: 0})
 	iClone.Name = canaryIngressName
 	iClone.Namespace = canary.Namespace
 	iClone.OwnerReferences = []metav1.OwnerReference{
@@ -123,7 +128,7 @@ func (skp *SkipperRouter) Reconcile(canary *flaggerv1.Canary) error {
 }
 
 func (skp *SkipperRouter) GetRoutes(canary *flaggerv1.Canary) (primaryWeight, canaryWeight int, mirrored bool, err error) {
-	apexSvcName, _, canarySvcName := canary.GetServiceNames()
+	_, primarySvcName, canarySvcName := canary.GetServiceNames()
 
 	_, canaryIngressName := skp.getIngressNames(canary.Spec.IngressRef.Name)
 	canaryIngress, err := skp.kubeClient.NetworkingV1beta1().Ingresses(canary.Namespace).Get(context.TODO(), canaryIngressName, metav1.GetOptions{})
@@ -137,8 +142,17 @@ func (skp *SkipperRouter) GetRoutes(canary *flaggerv1.Canary) (primaryWeight, ca
 		err = fmt.Errorf("ingress %s.%s get backendWeights error: %w", canaryIngressName, canary.Namespace, err)
 		return
 	}
-	primaryWeight = weights[apexSvcName]
-	canaryWeight = weights[canarySvcName]
+	var ok bool
+	primaryWeight, ok = weights[primarySvcName]
+	if !ok {
+		err = fmt.Errorf("ingress %s.%s could not get weights[primarySvcName]", canaryIngressName, canary.Namespace)
+		return
+	}
+	canaryWeight, ok = weights[canarySvcName]
+	if !ok {
+		err = fmt.Errorf("ingress %s.%s could not get weights[canarySvcName]", canaryIngressName, canary.Namespace)
+		return
+	}
 	mirrored = false
 	skp.logger.With("GetRoutes", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
 		Debugf("GetRoutes primaryWeight: %d, canaryWeight: %d", primaryWeight, canaryWeight)
@@ -146,7 +160,7 @@ func (skp *SkipperRouter) GetRoutes(canary *flaggerv1.Canary) (primaryWeight, ca
 }
 
 func (skp *SkipperRouter) SetRoutes(canary *flaggerv1.Canary, primaryWeight, canaryWeight int, _ bool) (err error) {
-	apexSvcName, _, canarySvcName := canary.GetServiceNames()
+	_, primarySvcName, canarySvcName := canary.GetServiceNames()
 	_, canaryIngressName := skp.getIngressNames(canary.Spec.IngressRef.Name)
 	canaryIngress, err := skp.kubeClient.NetworkingV1beta1().Ingresses(canary.Namespace).Get(context.TODO(), canaryIngressName, metav1.GetOptions{})
 	if err != nil {
@@ -159,8 +173,8 @@ func (skp *SkipperRouter) SetRoutes(canary *flaggerv1.Canary, primaryWeight, can
 
 	// Canary
 	iClone.Annotations = skp.makeAnnotations(iClone.Annotations, map[string]int{
-		apexSvcName:   primaryWeight,
-		canarySvcName: canaryWeight,
+		primarySvcName: primaryWeight,
+		canarySvcName:  canaryWeight,
 	})
 
 	_, err = skp.kubeClient.NetworkingV1beta1().Ingresses(canary.Namespace).Update(context.TODO(), iClone, metav1.UpdateOptions{})
@@ -173,16 +187,25 @@ func (skp *SkipperRouter) SetRoutes(canary *flaggerv1.Canary, primaryWeight, can
 	return nil
 }
 
-func (skp *SkipperRouter) Finalize(_ *flaggerv1.Canary) error {
+func (skp *SkipperRouter) Finalize(canary *flaggerv1.Canary) error {
+	gracePeriodSeconds := int64(2)
+
+	_, canaryIngressName := skp.getIngressNames(canary.Spec.IngressRef.Name)
+	err := skp.kubeClient.NetworkingV1beta1().Ingresses(canary.Namespace).Delete(
+		context.TODO(), canaryIngressName, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriodSeconds})
+	if err != nil {
+		return fmt.Errorf("ingress %s.%s unable to remove canary ingress: %w", canaryIngressName, canary.Namespace, err)
+
+	}
 	return nil
 }
 
 func (skp *SkipperRouter) makeAnnotations(annotations map[string]string, backendWeights map[string]int) map[string]string {
-	b, err := json.Marshal(backendWeights)
-	if err != nil {
-		skp.logger.Errorf("Skipper:makeAnnotations: unable to marshal backendWeights %w", err)
-		return annotations
-	}
+	// the order of the annotation items matters here
+	// since Skipper will render a 'Traffic' predicate only on the first backend
+	// crucial that he canary backend has that predicate so the other backends will get the remaining traffic
+
+	fmt.Sprintf("{%s:")
 	annotations[skipperBackendWeightsAnnotationKey] = string(b)
 	return annotations
 }
