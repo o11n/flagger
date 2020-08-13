@@ -11,7 +11,7 @@ import (
 	"github.com/weaveworks/flagger/pkg/metrics/providers"
 )
 
-const routePattern = `{{- $route := printf "kube(ew)?_%s__%s__.*__%s(_[0-9]+)?" namespace ingress service }}`
+const routePattern = `{{- $route := printf "kube(ew)?_%s__%s_canary__.*__%s_canary(_[0-9]+)?" namespace ingress service }}`
 
 var skipperQueries = map[string]string{
 	"request-success-rate": routePattern + `
@@ -77,9 +77,6 @@ func encodeModelForSkipper(model flaggerv1.MetricTemplateModel) flaggerv1.Metric
 	model.Namespace = nonWord.ReplaceAllString(model.Namespace, "_")
 	model.Service = nonWord.ReplaceAllString(model.Service, "_")
 	model.Target = nonWord.ReplaceAllString(model.Target, "_")
-
-	logger, _ := logger.NewLoggerWithEncoding("debug", "json")
-	logger.Debug("encodeModelForSkipper: ", model)
 
 	return model
 }
