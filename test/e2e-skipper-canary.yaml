@@ -5,6 +5,8 @@ metadata:
   namespace: test
 spec:
   provider: skipper
+  progressDeadlineSeconds: 120
+  revertOnDeletion: true
   targetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -13,7 +15,6 @@ spec:
     apiVersion: networking.k8s.io/v1beta1
     kind: Ingress
     name: podinfo-ingress
-  progressDeadlineSeconds: 120
   service:
     # service name (defaults to targetRef.name)
     name: podinfo-service
@@ -29,7 +30,7 @@ spec:
   analysis:
     interval: 15s
     threshold: 5
-    maxWeight: 100
+    maxWeight: 70
     stepWeight: 10
     metrics:
     - name: request-success-rate
@@ -61,5 +62,5 @@ spec:
         timeout: 5s
         metadata:
           type: cmd
-          cmd: "hey -z 2m -q 10 -c 2 -host app.example.com http://skipper-ingress.kube-system"
+          cmd: "hey -z 10m -q 10 -c 2 -host app.example.com http://skipper-ingress.kube-system"
           logCmdOutput: "true"

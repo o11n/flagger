@@ -3,7 +3,7 @@
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd $REPO_ROOT
 
-make test
+# make test
 make build
 docker tag weaveworks/flagger:latest test/flagger:latest
 make loadtester-build

@@ -30,8 +30,11 @@ Implementation:
 */
 
 const (
+	skipperpredicateAnnotationKey      = "zalando.org/skipper-predicate"
 	skipperBackendWeightsAnnotationKey = "zalando.org/backend-weights"
 	canaryPatternf                     = "%s-canary"
+	canaryRouteWeight                  = "Weight(100)"
+	canaryRouteDisabled                = "False()"
 )
 
 type SkipperRouter struct {
@@ -176,6 +179,10 @@ func (skp *SkipperRouter) SetRoutes(canary *flaggerv1.Canary, primaryWeight, can
 		primarySvcName: primaryWeight,
 		canarySvcName:  canaryWeight,
 	})
+	// remove the canary ingress at the end
+	if canaryWeight == 0 {
+		iClone.Annotations[skipperpredicateAnnotationKey] = canaryRouteDisabled
+	}
 
 	_, err = skp.kubeClient.NetworkingV1beta1().Ingresses(canary.Namespace).Update(context.TODO(), iClone, metav1.UpdateOptions{})
 	if err != nil {
@@ -184,29 +191,37 @@ func (skp *SkipperRouter) SetRoutes(canary *flaggerv1.Canary, primaryWeight, can
 	skp.logger.With("SetRoutes", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
 		Debugf("primaryWeight: %d, canaryWeight: %d", primaryWeight, canaryWeight)
 
-	return nil
+	return err
 }
 
 func (skp *SkipperRouter) Finalize(canary *flaggerv1.Canary) error {
-	gracePeriodSeconds := int64(2)
+	return skp.deleteCanaryIngress(canary)
+}
 
+func (skp *SkipperRouter) deleteCanaryIngress(canary *flaggerv1.Canary) error {
+	gracePeriodSeconds := int64(2)
 	_, canaryIngressName := skp.getIngressNames(canary.Spec.IngressRef.Name)
+	skp.logger.With("deleteCanaryIngress", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
+		Debugf("Deleting Canary Ingress: %s", canaryIngressName)
+
 	err := skp.kubeClient.NetworkingV1beta1().Ingresses(canary.Namespace).Delete(
 		context.TODO(), canaryIngressName, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriodSeconds})
 	if err != nil {
 		return fmt.Errorf("ingress %s.%s unable to remove canary ingress: %w", canaryIngressName, canary.Namespace, err)
-
 	}
 	return nil
 }
 
 func (skp *SkipperRouter) makeAnnotations(annotations map[string]string, backendWeights map[string]int) map[string]string {
-	// the order of the annotation items matters here
-	// since Skipper will render a 'Traffic' predicate only on the first backend
-	// crucial that he canary backend has that predicate so the other backends will get the remaining traffic
-
-	fmt.Sprintf("{%s:")
+	b, err := json.Marshal(backendWeights)
+	if err != nil {
+		skp.logger.Errorf("Skipper:makeAnnotations: unable to marshal backendWeights %w", err)
+		return annotations
+	}
 	annotations[skipperBackendWeightsAnnotationKey] = string(b)
+	// adding more weight to canary route solves traffic bypassing through apexIngress
+	annotations[skipperpredicateAnnotationKey] = canaryRouteWeight
+
 	return annotations
 }
 
