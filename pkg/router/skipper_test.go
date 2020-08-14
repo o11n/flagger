@@ -48,15 +48,17 @@ func TestSkipperRouter_Reconcile(t *testing.T) {
 				context.TODO(), canaryName, metav1.GetOptions{})
 			assert.NoError(err)
 			// test initialisation
-			assert.JSONEq(`{ "podinfo":  100, "podinfo-canary":  0 }`, inCanary.Annotations["zalando.org/backend-weights"])
-			assert.Equal("podinfo-canary", inCanary.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName, "backend flipped over")
-			// assert.Equal("podinfo-canary", inCanary.Spec.Rules[0].HTTP.Paths[1].Backend.ServiceName, "backend flipped over")
-			assert.Len(inCanary.Spec.Rules[0].HTTP.Paths, 1)
+			assert.JSONEq(`{ "podinfo-primary":  100, "podinfo-canary":  0 }`, inCanary.Annotations["zalando.org/backend-weights"])
+			assert.Equal("podinfo-primary", inCanary.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName, "backend flipped over")
+			assert.Equal("podinfo-canary", inCanary.Spec.Rules[0].HTTP.Paths[1].Backend.ServiceName, "backend flipped over")
+			assert.Len(inCanary.Spec.Rules[0].HTTP.Paths, 2)
 			inApex, err := router.kubeClient.NetworkingV1beta1().Ingresses("default").Get(
 				context.TODO(), mocks.ingressCanary.Spec.IngressRef.Name, metav1.GetOptions{})
 			assert.NoError(err)
 			assert.Equal(inCanary.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort,
 				inApex.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort, "canary backend not cloned")
+			assert.Equal(inCanary.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort,
+				inCanary.Spec.Rules[0].HTTP.Paths[1].Backend.ServicePort, "canary backend not cloned")
 		})
 	}
 }
