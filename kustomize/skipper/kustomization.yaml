@@ -3,9 +3,9 @@ kind: Kustomization
 resources:
   - ../base/prometheus/
   - ../base/flagger/
-  - https://raw.githubusercontent.com/zalando/skipper/master/docs/kubernetes/deploy/deployment/rbac.yaml
-  - https://raw.githubusercontent.com/zalando/skipper/master/docs/kubernetes/deploy/deployment/service.yaml
-  - https://raw.githubusercontent.com/zalando/skipper/master/docs/kubernetes/deploy/deployment/deployment.yaml
+  - https://raw.githubusercontent.com/zalando/skipper/v0.11.140/docs/kubernetes/deploy/deployment/rbac.yaml
+  - https://raw.githubusercontent.com/zalando/skipper/v0.11.140/docs/kubernetes/deploy/deployment/service.yaml
+  - https://raw.githubusercontent.com/zalando/skipper/v0.11.140/docs/kubernetes/deploy/deployment/deployment.yaml
   - namespace.yaml
 patchesStrategicMerge:
   - patch.yaml
