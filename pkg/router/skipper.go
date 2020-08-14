@@ -34,17 +34,12 @@ const (
 	skipperBackendWeightsAnnotationKey = "zalando.org/backend-weights"
 	canaryPatternf                     = "%s-canary"
 	canaryRouteWeight                  = "Weight(100)"
-	canaryRouteDisabled                = "False()"
+	canaryRouteDisable                 = "False()"
 )
 
 type SkipperRouter struct {
 	kubeClient kubernetes.Interface
 	logger     *zap.SugaredLogger
-}
-
-type backendWeight struct {
-	name   string
-	weight int
 }
 
 // Reconcile creates or updates the ingresses
@@ -126,7 +121,6 @@ func (skp *SkipperRouter) Reconcile(canary *flaggerv1.Canary) error {
 		skp.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
 			Infof("Ingress %s updated", canaryIngressName)
 	}
-
 	return nil
 }
 
@@ -179,12 +173,14 @@ func (skp *SkipperRouter) SetRoutes(canary *flaggerv1.Canary, primaryWeight, can
 		primarySvcName: primaryWeight,
 		canarySvcName:  canaryWeight,
 	})
-	// remove the canary ingress at the end
+
+	// Disable the canary-ingress route after the canary process
 	if canaryWeight == 0 {
-		iClone.Annotations[skipperpredicateAnnotationKey] = canaryRouteDisabled
+		iClone.Annotations[skipperpredicateAnnotationKey] = canaryRouteDisable
 	}
 
-	_, err = skp.kubeClient.NetworkingV1beta1().Ingresses(canary.Namespace).Update(context.TODO(), iClone, metav1.UpdateOptions{})
+	_, err = skp.kubeClient.NetworkingV1beta1().Ingresses(canary.Namespace).Update(
+		context.TODO(), iClone, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("ingress %s.%s update error %w", iClone.Name, iClone.Namespace, err)
 	}
@@ -195,10 +191,6 @@ func (skp *SkipperRouter) SetRoutes(canary *flaggerv1.Canary, primaryWeight, can
 }
 
 func (skp *SkipperRouter) Finalize(canary *flaggerv1.Canary) error {
-	return skp.deleteCanaryIngress(canary)
-}
-
-func (skp *SkipperRouter) deleteCanaryIngress(canary *flaggerv1.Canary) error {
 	gracePeriodSeconds := int64(2)
 	_, canaryIngressName := skp.getIngressNames(canary.Spec.IngressRef.Name)
 	skp.logger.With("deleteCanaryIngress", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
