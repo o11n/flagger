@@ -18,8 +18,8 @@ var skipperQueries = map[string]string{
 	sum(rate(skipper_response_duration_seconds_bucket{route=~"{{ $route }}",code!~"5..",le="+Inf"}[{{ interval }}])) / 
 	sum(rate(skipper_response_duration_seconds_bucket{route=~"{{ $route }}",le="+Inf"}[{{ interval }}])) * 100`,
 	"request-duration": routePattern + `
-	sum(rate(skipper_response_duration_seconds_sum{route=~"{{ $route }}"}[{{ interval }}])) / 
-	sum(rate(skipper_response_duration_seconds_count{route=~"{{ $route }}"}[{{ interval }}])) * 1000`,
+	sum(rate(skipper_serve_route_duration_seconds_sum{route=~"{{ $route }}"}[{{ interval }}])) / 
+	sum(rate(skipper_serve_route_duration_seconds_count{route=~"{{ $route }}"}[{{ interval }}])) * 1000`,
 }
 
 // SkipperObserver Implementation for Skipper (https://github.com/zalando/skipper)

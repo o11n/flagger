@@ -72,7 +72,7 @@ func TestSkipperObserver_GetRequestSuccessRate(t *testing.T) {
 }
 
 func TestSkipperObserver_GetRequestDuration(t *testing.T) {
-	expected := ` sum(rate(skipper_response_duration_seconds_sum{route=~"kube(ew)?_skipper__skipper_ingress_canary__.*__backend_canary(_[0-9]+)?"}[1m])) / sum(rate(skipper_response_duration_seconds_count{route=~"kube(ew)?_skipper__skipper_ingress_canary__.*__backend_canary(_[0-9]+)?"}[1m])) * 1000`
+	expected := ` sum(rate(skipper_serve_route_duration_seconds_sum{route=~"kube(ew)?_skipper__skipper_ingress_canary__.*__backend_canary(_[0-9]+)?"}[1m])) / sum(rate(skipper_serve_route_duration_seconds_count{route=~"kube(ew)?_skipper__skipper_ingress_canary__.*__backend_canary(_[0-9]+)?"}[1m])) * 1000`
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		promql := r.URL.Query()["query"][0]
